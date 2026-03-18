@@ -2,6 +2,7 @@ import { appData } from "./mockData.js";
 import { lineChart, miniBars } from "./charts.js";
 
 const app = document.querySelector("#app");
+const AUTH_DISABLED = true;
 
 const routes = [
   { id: "overview", label: "Home" },
@@ -52,6 +53,10 @@ function currentRoute() {
 }
 
 function availableRoutes() {
+  if (AUTH_DISABLED) {
+    return routes.filter((route) => route.id !== "admin");
+  }
+
   return routes.filter((route) => route.id !== "admin" || authState.user?.role === "admin");
 }
 
@@ -1358,6 +1363,17 @@ function bindLogin() {
 }
 
 async function checkSession() {
+  if (AUTH_DISABLED) {
+    authState.status = "authenticated";
+    authState.user = {
+      username: "public-preview",
+      role: "admin"
+    };
+    authState.screen = "login";
+    authState.error = "";
+    return;
+  }
+
   authState.status = "loading";
   authState.error = "";
 
@@ -1391,6 +1407,10 @@ async function checkSession() {
 }
 
 async function logout() {
+  if (AUTH_DISABLED) {
+    return;
+  }
+
   try {
     await fetch("/api/auth/logout", {
       method: "POST",
