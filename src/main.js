@@ -26,6 +26,12 @@ const state = {
   reportFormat: "csv"
 };
 
+const authState = {
+  status: "loading",
+  user: null,
+  error: ""
+};
+
 function currentRoute() {
   const route = window.location.hash.replace("#", "") || "overview";
   return routes.some((item) => item.id === route) ? route : "overview";
@@ -94,6 +100,13 @@ function exportButton(label = "Export Report", options = {}) {
     .map(([key, value]) => `${key}="${value}"`)
     .join(" ");
   return `<button class="ghost-link ghost-link--strong" ${attributes}>${label}</button>`;
+}
+
+function authButton(label, options = {}) {
+  const attributes = Object.entries(options)
+    .map(([key, value]) => `${key}="${value}"`)
+    .join(" ");
+  return `<button class="auth-button" ${attributes}>${label}</button>`;
 }
 
 function escapeHtml(value) {
@@ -367,9 +380,11 @@ function shell(route) {
           </div>
         </div>
         <div class="top-meta">
+          <span>${authState.user?.username || "Authenticated user"}</span>
           <span>${appData.property.location}</span>
           <span>${appData.ranges.find((item) => item.id === state.range).label}</span>
           <span>${appData.compareOptions.find((item) => item.id === state.compare).label}</span>
+          ${authButton("Log out", { id: "logout-button" })}
         </div>
       </header>
 
@@ -384,6 +399,61 @@ function shell(route) {
       <nav class="nav">${navMarkup(route)}</nav>
       ${rangeControls()}
       <main class="content">${pageMarkup(route)}</main>
+    </div>
+  `;
+}
+
+function loginShell() {
+  const configHint =
+    authState.status === "config-error"
+      ? `
+        <div class="auth-notice auth-notice--warning">
+          <strong>Auth is not configured in Vercel yet.</strong>
+          <p>Set <code>APP_ADMIN_USERNAME</code>, <code>APP_ADMIN_PASSWORD</code>, and <code>APP_SESSION_SECRET</code> in the project environment variables.</p>
+        </div>
+      `
+      : "";
+
+  const errorMarkup =
+    authState.error
+      ? `
+        <div class="auth-notice auth-notice--error">
+          <strong>Sign-in failed</strong>
+          <p>${escapeHtml(authState.error)}</p>
+        </div>
+      `
+      : "";
+
+  return `
+    <div class="auth-shell">
+      <section class="auth-card">
+        <div class="brand">
+          <div class="brand-mark">HG</div>
+          <div>
+            <p class="eyebrow">Secure Access</p>
+            <h1>${appData.property.name}</h1>
+          </div>
+        </div>
+        <div class="auth-copy">
+          <h2>Sign in to view the dashboard</h2>
+          <p>This dashboard is restricted to authorized management and reporting users.</p>
+        </div>
+        ${configHint}
+        ${errorMarkup}
+        <form id="login-form" class="auth-form">
+          <label>
+            <span>Username</span>
+            <input id="login-username" name="username" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button id="login-submit" class="auth-button auth-button--primary" type="submit">
+            ${authState.status === "submitting" ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+      </section>
     </div>
   `;
 }
@@ -841,7 +911,7 @@ function renderAssistantPlaceholder() {
   container.classList.add("has-content");
 }
 
-function bind() {
+function bindApp() {
   document.querySelectorAll("[data-route]").forEach((node) => {
     node.addEventListener("click", () => {
       if (node.dataset.focus) {
@@ -925,14 +995,141 @@ function bind() {
       runExport(node.dataset.exportRoute, node.dataset.exportSection || "page", node.dataset.exportFormat || "csv");
     });
   });
+
+  const logoutButton = document.querySelector("#logout-button");
+  if (logoutButton) {
+    logoutButton.addEventListener("click", async () => {
+      await logout();
+    });
+  }
+}
+
+function bindLogin() {
+  const loginForm = document.querySelector("#login-form");
+  if (!loginForm) return;
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    authState.status = "submitting";
+    authState.error = "";
+    render();
+
+    const username = document.querySelector("#login-username")?.value || "";
+    const password = document.querySelector("#login-password")?.value || "";
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        authState.status = response.status === 500 ? "config-error" : "anonymous";
+        authState.error = payload.error || "Unable to sign in.";
+        render();
+        return;
+      }
+
+      authState.status = "authenticated";
+      authState.user = payload.username ? { username: payload.username } : { username };
+      authState.error = "";
+      render();
+    } catch {
+      authState.status = "anonymous";
+      authState.error = "The sign-in service is unavailable right now.";
+      render();
+    }
+  });
+}
+
+async function checkSession() {
+  authState.status = "loading";
+  authState.error = "";
+
+  try {
+    const response = await fetch("/api/auth/me", {
+      credentials: "same-origin"
+    });
+
+    if (response.ok) {
+      const payload = await response.json();
+      authState.status = "authenticated";
+      authState.user = payload.user;
+      return;
+    }
+
+    if (response.status === 401) {
+      authState.status = "anonymous";
+      authState.user = null;
+      return;
+    }
+
+    authState.status = "config-error";
+    authState.user = null;
+    authState.error = "Authentication is not configured yet.";
+  } catch {
+    authState.status = "anonymous";
+    authState.user = null;
+    authState.error = "The sign-in service is unavailable right now.";
+  }
+}
+
+async function logout() {
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin"
+    });
+  } catch {
+    // Clear the client view even if the request fails.
+  }
+
+  authState.status = "anonymous";
+  authState.user = null;
+  authState.error = "";
+  render();
 }
 
 function render() {
+  if (authState.status === "loading") {
+    app.innerHTML = `
+      <div class="auth-shell">
+        <section class="auth-card auth-card--loading">
+          <div class="brand">
+            <div class="brand-mark">HG</div>
+            <div>
+              <p class="eyebrow">Secure Access</p>
+              <h1>${appData.property.name}</h1>
+            </div>
+          </div>
+          <div class="auth-copy">
+            <h2>Checking session</h2>
+            <p>Loading the secure dashboard.</p>
+          </div>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  if (authState.status !== "authenticated") {
+    app.innerHTML = loginShell();
+    bindLogin();
+    return;
+  }
+
   const route = currentRoute();
   app.innerHTML = shell(route);
   renderAssistantPlaceholder();
-  bind();
+  bindApp();
 }
 
 window.addEventListener("hashchange", render);
-render();
+
+checkSession().then(render);
