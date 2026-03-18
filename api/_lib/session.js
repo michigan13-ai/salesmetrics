@@ -24,9 +24,10 @@ function timingSafeEqual(left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function createSessionValue(username) {
+function createSessionValue(user) {
   const payload = JSON.stringify({
-    username,
+    username: user.username,
+    role: user.role || "viewer",
     exp: Math.floor(Date.now() / 1000) + ONE_DAY_SECONDS
   });
   const encoded = base64url(payload);
@@ -64,8 +65,8 @@ function readSession(req) {
   }
 }
 
-function setSession(res, username) {
-  const value = createSessionValue(username);
+function setSession(res, user) {
+  const value = createSessionValue(user);
   res.setHeader(
     "Set-Cookie",
     `${COOKIE_NAME}=${value}; HttpOnly; Path=/; Max-Age=${ONE_DAY_SECONDS}; SameSite=Strict${IS_PRODUCTION ? "; Secure" : ""}`

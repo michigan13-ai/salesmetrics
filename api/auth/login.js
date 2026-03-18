@@ -17,10 +17,12 @@ module.exports = async function handler(req, res) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
 
-  if (!validateCredentials(body.username || "", body.password || "")) {
+  const user = await validateCredentials(body.username || "", body.password || "");
+
+  if (!user) {
     return json(res, 401, { error: "Invalid username or password" });
   }
 
-  setSession(res, body.username);
-  return json(res, 200, { ok: true, username: body.username });
+  setSession(res, user);
+  return json(res, 200, { ok: true, username: user.username, role: user.role });
 };

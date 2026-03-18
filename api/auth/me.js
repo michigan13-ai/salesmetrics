@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
   return json(res, 200, {
     authenticated: true,
     user: {
-      username: session.username
+      username: session.username,
+      role: session.role || "viewer"
     }
   });
 };

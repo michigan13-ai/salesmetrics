@@ -7,6 +7,28 @@ create table if not exists app_users (
   created_at timestamptz not null default now()
 );
 
+create table if not exists dashboard_users (
+  id uuid primary key default gen_random_uuid(),
+  username text unique not null,
+  password_hash text not null,
+  role text not null default 'viewer',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists access_recovery_requests (
+  id uuid primary key default gen_random_uuid(),
+  requester_name text not null,
+  requester_contact text,
+  request_type text not null,
+  note text,
+  status text not null default 'open',
+  resolved_at timestamptz,
+  resolved_by text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists integration_connections (
   id uuid primary key default gen_random_uuid(),
   provider text not null,

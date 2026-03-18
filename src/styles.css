@@ -89,18 +89,43 @@ button {
   gap: 14px;
 }
 
+.auth-choice-group {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.auth-choice-group legend {
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.auth-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+
 .auth-form label {
   display: grid;
   gap: 6px;
 }
 
-.auth-form input {
+.auth-form input,
+.auth-form textarea {
   width: 100%;
   padding: 13px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: #fbfdff;
   color: var(--text);
+}
+
+.auth-form textarea {
+  resize: vertical;
 }
 
 .auth-button {
@@ -136,6 +161,23 @@ button {
 .auth-notice--error {
   border-color: #efc1c1;
   background: #fff2f2;
+}
+
+.auth-notice--success {
+  border-color: #b8e5d5;
+  background: #eefbf5;
+}
+
+.auth-link {
+  justify-self: start;
+}
+
+.empty-state {
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  background: #fbfdff;
 }
 
 .top,

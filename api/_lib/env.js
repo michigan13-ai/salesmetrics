@@ -30,6 +30,7 @@ module.exports = {
   flags: {
     mailchimpConfigured: hasEnv("MAILCHIMP_API_KEY") || hasEnv("MAILCHIMP_OAUTH_ACCESS_TOKEN"),
     streamlineConfigured: hasEnv("STREAMLINE_API_KEY"),
-    authConfigured: hasEnv("APP_ADMIN_USERNAME") && hasEnv("APP_ADMIN_PASSWORD") && hasEnv("APP_SESSION_SECRET")
+    authConfigured: hasEnv("APP_ADMIN_USERNAME") && hasEnv("APP_ADMIN_PASSWORD") && hasEnv("APP_SESSION_SECRET"),
+    supabaseAdminConfigured: hasEnv("SUPABASE_URL") && hasEnv("SUPABASE_SERVICE_ROLE_KEY")
   }
 };

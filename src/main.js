@@ -12,7 +12,8 @@ const routes = [
   { id: "campaigns", label: "Campaigns" },
   { id: "inventory", label: "Inventory" },
   { id: "team", label: "Team" },
-  { id: "data-ops", label: "Data Ops" }
+  { id: "data-ops", label: "Data Ops" },
+  { id: "admin", label: "Access" }
 ];
 
 const state = {
@@ -29,16 +30,33 @@ const state = {
 const authState = {
   status: "loading",
   user: null,
+  error: "",
+  screen: "login",
+  recoveryMessage: ""
+};
+
+const adminState = {
+  status: "idle",
+  configured: false,
+  users: [],
+  recoveryRequests: [],
   error: ""
 };
 
 function currentRoute() {
   const route = window.location.hash.replace("#", "") || "overview";
+  if (route === "admin" && authState.user?.role !== "admin") {
+    return "overview";
+  }
   return routes.some((item) => item.id === route) ? route : "overview";
 }
 
+function availableRoutes() {
+  return routes.filter((route) => route.id !== "admin" || authState.user?.role === "admin");
+}
+
 function navMarkup(active) {
-  return routes
+  return availableRoutes()
     .map(
       (route) => `
         <button class="nav-link ${route.id === active ? "is-active" : ""}" data-route="${route.id}">
@@ -162,7 +180,7 @@ function buyersRows() {
 }
 
 function routeLabel(routeId) {
-  return routes.find((route) => route.id === routeId)?.label || routeId;
+  return availableRoutes().find((route) => route.id === routeId)?.label || routeId;
 }
 
 function reportSections(route) {
@@ -381,6 +399,7 @@ function shell(route) {
         </div>
         <div class="top-meta">
           <span>${authState.user?.username || "Authenticated user"}</span>
+          <span>${authState.user?.role === "admin" ? "Admin" : "Standard user"}</span>
           <span>${appData.property.location}</span>
           <span>${appData.ranges.find((item) => item.id === state.range).label}</span>
           <span>${appData.compareOptions.find((item) => item.id === state.compare).label}</span>
@@ -404,6 +423,57 @@ function shell(route) {
 }
 
 function loginShell() {
+  if (authState.screen === "recovery") {
+    const messageMarkup = authState.recoveryMessage
+      ? `
+        <div class="auth-notice auth-notice--success">
+          <strong>Request sent</strong>
+          <p>${escapeHtml(authState.recoveryMessage)}</p>
+        </div>
+      `
+      : "";
+
+    return `
+      <div class="auth-shell">
+        <section class="auth-card">
+          <div class="brand">
+            <div class="brand-mark">HG</div>
+            <div>
+              <p class="eyebrow">Secure Access</p>
+              <h1>${appData.property.name}</h1>
+            </div>
+          </div>
+          <div class="auth-copy">
+            <h2>Forgot your sign in</h2>
+            <p>Select what you lost and send a request to the master admin account.</p>
+          </div>
+          ${messageMarkup}
+          <form id="recovery-form" class="auth-form">
+            <label>
+              <span>Your name</span>
+              <input id="recovery-name" name="name" type="text" required />
+            </label>
+            <label>
+              <span>Contact info</span>
+              <input id="recovery-contact" name="contact" type="text" placeholder="Email or phone" />
+            </label>
+            <fieldset class="auth-choice-group">
+              <legend>What do you need help with?</legend>
+              <label class="auth-choice"><input type="checkbox" name="requestType" value="Forgot username" /> Forgot username</label>
+              <label class="auth-choice"><input type="checkbox" name="requestType" value="Forgot password" /> Forgot password</label>
+            </fieldset>
+            <label>
+              <span>Notes</span>
+              <textarea id="recovery-note" name="note" rows="4" placeholder="Add anything helpful for the reset request."></textarea>
+            </label>
+            <button class="auth-button auth-button--primary" type="submit">Send request</button>
+          </form>
+          <button id="show-login" class="ghost-link auth-link">Back to sign in</button>
+        </section>
+      </div>
+    `;
+  }
+
   const configHint =
     authState.status === "config-error"
       ? `
@@ -453,8 +523,107 @@ function loginShell() {
             ${authState.status === "submitting" ? "Signing in..." : "Sign in"}
           </button>
         </form>
+        <button id="show-recovery" class="ghost-link auth-link">Forgot your sign in</button>
       </section>
     </div>
+  `;
+}
+
+function accessPage() {
+  const usersMarkup =
+    adminState.status === "loading"
+      ? `<div class="empty-state">Loading access records.</div>`
+      : adminState.users.length
+        ? `
+          <div class="table-shell">
+            <table>
+              <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody>
+                ${adminState.users
+                  .map(
+                    (user) => `
+                      <tr>
+                        <td>${escapeHtml(user.username)}</td>
+                        <td>${escapeHtml(user.role)}</td>
+                        <td>${user.is_active ? "Active" : "Disabled"}</td>
+                        <td>${String(user.created_at || "").slice(0, 10)}</td>
+                        <td><button class="ghost-link" data-admin-disable="${user.id}">${user.is_active ? "Disable" : "Disabled"}</button></td>
+                      </tr>
+                    `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `
+        : `<div class="empty-state">No managed users yet.</div>`;
+
+  const requestsMarkup =
+    adminState.status === "loading"
+      ? `<div class="empty-state">Loading recovery requests.</div>`
+      : adminState.recoveryRequests.length
+        ? `
+          <div class="table-shell">
+            <table>
+              <thead><tr><th>Name</th><th>Contact</th><th>Request</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead>
+              <tbody>
+                ${adminState.recoveryRequests
+                  .map(
+                    (request) => `
+                      <tr>
+                        <td>${escapeHtml(request.requester_name)}</td>
+                        <td>${escapeHtml(request.requester_contact || "")}</td>
+                        <td>${escapeHtml(request.request_type)}</td>
+                        <td>${escapeHtml(request.status)}</td>
+                        <td class="notes-cell">${escapeHtml(request.note || "")}</td>
+                        <td>${request.status === "open" ? `<button class="ghost-link" data-admin-resolve="${request.id}">Mark resolved</button>` : "Resolved"}</td>
+                      </tr>
+                    `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `
+        : `<div class="empty-state">No recovery requests yet.</div>`;
+
+  return `
+    <section class="page-section">
+      <div class="section-head">
+        <div><p class="eyebrow">Admin access</p><h2>Profiles and reset requests</h2></div>
+        <p class="section-copy">Your master admin account stays separate from the managed user list. Use this page to create users and handle forgot-login requests.</p>
+      </div>
+      ${!adminState.configured ? `<div class="auth-notice auth-notice--warning"><strong>Supabase admin is not configured.</strong><p>User management and recovery requests will go live after you set <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> and run the schema.</p></div>` : ""}
+      ${adminState.error ? `<div class="auth-notice auth-notice--error"><strong>Access setup issue</strong><p>${escapeHtml(adminState.error)}</p></div>` : ""}
+      <div class="summary-grid">
+        <div class="summary-card summary-card--static"><span>Master admin</span><strong>${escapeHtml(authState.user?.username || "")}</strong><p>Env-based master account.</p></div>
+        <div class="summary-card summary-card--static"><span>Managed users</span><strong>${adminState.users.length}</strong><p>Stored in Supabase once configured.</p></div>
+        <div class="summary-card summary-card--static"><span>Open reset requests</span><strong>${adminState.recoveryRequests.filter((item) => item.status === "open").length}</strong><p>Submitted from the forgot-login screen.</p></div>
+      </div>
+    </section>
+    <section class="page-grid">
+      <article class="panel">
+        <div class="panel-head"><div><p class="eyebrow">New user</p><h3>Add a profile</h3></div></div>
+        <div class="form-grid">
+          <label><span>Username</span><input id="admin-username" type="text" required /></label>
+          <label><span>Password</span><input id="admin-password" type="password" required /></label>
+          <label><span>Role</span><select id="admin-role"><option value="viewer">Viewer</option><option value="admin">Admin</option></select></label>
+        </div>
+        <div class="form-actions">
+          <button id="admin-create-user" class="ghost-link ghost-link--strong">Create user</button>
+        </div>
+      </article>
+      <article class="panel panel--wide">
+        <div class="panel-head"><div><p class="eyebrow">Users</p><h3>Managed accounts</h3></div></div>
+        ${usersMarkup}
+      </article>
+    </section>
+    <section class="page-section">
+      <article class="panel">
+        <div class="panel-head"><div><p class="eyebrow">Recovery queue</p><h3>Forgot-login requests</h3></div></div>
+        ${requestsMarkup}
+      </article>
+    </section>
   `;
 }
 
@@ -897,6 +1066,7 @@ function pageMarkup(route) {
   if (route === "inventory") return inventoryPage();
   if (route === "team") return teamPage();
   if (route === "data-ops") return dataOpsPage();
+  if (route === "admin") return accessPage();
   return overviewPage();
 }
 
@@ -928,6 +1098,7 @@ function bindApp() {
   const reportPage = document.querySelector("#report-page");
   const reportSection = document.querySelector("#report-section");
   const reportFormat = document.querySelector("#report-format");
+  const adminCreateUser = document.querySelector("#admin-create-user");
 
   if (range) {
     range.addEventListener("change", () => {
@@ -1002,50 +1173,188 @@ function bindApp() {
       await logout();
     });
   }
+
+  if (adminCreateUser) {
+    adminCreateUser.addEventListener("click", async () => {
+      const username = document.querySelector("#admin-username")?.value || "";
+      const password = document.querySelector("#admin-password")?.value || "";
+      const role = document.querySelector("#admin-role")?.value || "viewer";
+
+      try {
+        const response = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ username, password, role })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          adminState.error = payload.error || "Unable to create user.";
+          render();
+          return;
+        }
+        await loadAdminAccess();
+      } catch {
+        adminState.error = "Unable to create user.";
+        render();
+      }
+    });
+  }
+
+  document.querySelectorAll("[data-admin-disable]").forEach((node) => {
+    node.addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/admin/users", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ id: node.dataset.adminDisable, is_active: false })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          adminState.error = payload.error || "Unable to update user.";
+          render();
+          return;
+        }
+        await loadAdminAccess();
+      } catch {
+        adminState.error = "Unable to update user.";
+        render();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-admin-resolve]").forEach((node) => {
+    node.addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/admin/recovery-requests", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ id: node.dataset.adminResolve, status: "resolved" })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          adminState.error = payload.error || "Unable to resolve request.";
+          render();
+          return;
+        }
+        await loadAdminAccess();
+      } catch {
+        adminState.error = "Unable to resolve request.";
+        render();
+      }
+    });
+  });
 }
 
 function bindLogin() {
   const loginForm = document.querySelector("#login-form");
-  if (!loginForm) return;
+  const recoveryForm = document.querySelector("#recovery-form");
+  const showRecovery = document.querySelector("#show-recovery");
+  const showLogin = document.querySelector("#show-login");
 
-  loginForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    authState.status = "submitting";
-    authState.error = "";
-    render();
+  if (showRecovery) {
+    showRecovery.addEventListener("click", () => {
+      authState.screen = "recovery";
+      authState.error = "";
+      authState.recoveryMessage = "";
+      render();
+    });
+  }
 
-    const username = document.querySelector("#login-username")?.value || "";
-    const password = document.querySelector("#login-password")?.value || "";
+  if (showLogin) {
+    showLogin.addEventListener("click", () => {
+      authState.screen = "login";
+      authState.error = "";
+      authState.recoveryMessage = "";
+      render();
+    });
+  }
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "same-origin",
-        body: JSON.stringify({ username, password })
-      });
-
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        authState.status = response.status === 500 ? "config-error" : "anonymous";
-        authState.error = payload.error || "Unable to sign in.";
-        render();
-        return;
-      }
-
-      authState.status = "authenticated";
-      authState.user = payload.username ? { username: payload.username } : { username };
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      authState.status = "submitting";
       authState.error = "";
       render();
-    } catch {
-      authState.status = "anonymous";
-      authState.error = "The sign-in service is unavailable right now.";
-      render();
-    }
-  });
+
+      const username = document.querySelector("#login-username")?.value || "";
+      const password = document.querySelector("#login-password")?.value || "";
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ username, password })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          authState.status = response.status === 500 ? "config-error" : "anonymous";
+          authState.error = payload.error || "Unable to sign in.";
+          render();
+          return;
+        }
+
+        authState.status = "authenticated";
+        authState.user = payload.username ? { username: payload.username, role: payload.role || "viewer" } : { username, role: payload.role || "viewer" };
+        authState.error = "";
+        authState.screen = "login";
+        render();
+      } catch {
+        authState.status = "anonymous";
+        authState.error = "The sign-in service is unavailable right now.";
+        render();
+      }
+    });
+  }
+
+  if (recoveryForm) {
+    recoveryForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      authState.error = "";
+      authState.recoveryMessage = "";
+
+      const requestType = [...document.querySelectorAll('input[name="requestType"]:checked')].map((node) => node.value);
+      const name = document.querySelector("#recovery-name")?.value || "";
+      const contact = document.querySelector("#recovery-contact")?.value || "";
+      const note = document.querySelector("#recovery-note")?.value || "";
+
+      try {
+        const response = await fetch("/api/auth/recovery-request", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ name, contact, note, requestType })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          authState.error = payload.error || "Unable to send request.";
+          render();
+          return;
+        }
+
+        authState.recoveryMessage = "Your request was sent to the master admin for review.";
+        render();
+      } catch {
+        authState.error = "Unable to send request.";
+        render();
+      }
+    });
+  }
 }
 
 async function checkSession() {
@@ -1061,6 +1370,7 @@ async function checkSession() {
       const payload = await response.json();
       authState.status = "authenticated";
       authState.user = payload.user;
+      authState.screen = "login";
       return;
     }
 
@@ -1093,7 +1403,42 @@ async function logout() {
   authState.status = "anonymous";
   authState.user = null;
   authState.error = "";
+  authState.screen = "login";
+  authState.recoveryMessage = "";
   render();
+}
+
+async function loadAdminAccess() {
+  if (authState.user?.role !== "admin") return;
+
+  adminState.status = "loading";
+  adminState.error = "";
+  render();
+
+  try {
+    const response = await fetch("/api/admin/access", {
+      credentials: "same-origin"
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      adminState.status = "error";
+      adminState.error = payload.error || "Unable to load access data.";
+      render();
+      return;
+    }
+
+    adminState.status = "ready";
+    adminState.configured = Boolean(payload.configured);
+    adminState.users = payload.users || [];
+    adminState.recoveryRequests = payload.recoveryRequests || [];
+    adminState.error = "";
+    render();
+  } catch {
+    adminState.status = "error";
+    adminState.error = "Unable to load access data.";
+    render();
+  }
 }
 
 function render() {
@@ -1128,6 +1473,10 @@ function render() {
   app.innerHTML = shell(route);
   renderAssistantPlaceholder();
   bindApp();
+
+  if (route === "admin" && authState.user?.role === "admin" && adminState.status === "idle") {
+    loadAdminAccess();
+  }
 }
 
 window.addEventListener("hashchange", render);
