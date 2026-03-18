@@ -305,6 +305,29 @@ table,
   margin-top: 20px;
 }
 
+.global-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.global-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.global-controls select {
+  min-width: 180px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fbfdff;
+  color: var(--text);
+}
+
 .buyers-controls {
   display: flex;
   flex-wrap: wrap;
@@ -366,6 +389,12 @@ table,
   line-height: 1.7;
 }
 
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
 .page-grid,
 .summary-grid,
 .tile-grid,
@@ -403,6 +432,11 @@ table,
 
 .summary-card--static {
   cursor: default;
+}
+
+.widget-card.is-focused {
+  border-color: rgba(47, 111, 219, 0.4);
+  box-shadow: 0 0 0 3px rgba(47, 111, 219, 0.08), var(--shadow);
 }
 
 .origin-bars {
@@ -593,6 +627,11 @@ table,
   background: #fff4e5;
 }
 
+.delta--down {
+  color: var(--red);
+  background: #ffecec;
+}
+
 .panel {
   padding: 20px;
   border-radius: var(--radius-xl);
@@ -609,6 +648,18 @@ table,
 .ghost-link {
   padding: 10px 14px;
   color: var(--blue);
+}
+
+.ghost-link--strong {
+  background: #eef4ff;
+  font-weight: 700;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .chart-card {
@@ -820,6 +871,65 @@ table,
   border-radius: 16px;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fbfdff;
+  color: var(--text);
+  font: inherit;
+}
+
+.form-grid textarea {
+  resize: vertical;
+}
+
+.form-grid__full {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.upload-dropzone {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px dashed #b8cae4;
+  background: #f8fbff;
+}
+
+.upload-dropzone strong {
+  font-size: 1rem;
+}
+
+.upload-dropzone p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -865,7 +975,8 @@ th {
 
 @media (max-width: 760px) {
   .app-shell {
-    width: min(100% - 20px, 1380px);
+    width: min(100% - 16px, 1380px);
+    padding: 12px 0 40px;
   }
 
   .top,
@@ -875,8 +986,36 @@ th {
     flex-direction: column;
   }
 
+  .top {
+    padding: 14px;
+    gap: 14px;
+    border-radius: 18px;
+  }
+
+  .brand {
+    align-items: flex-start;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .top-meta {
+    width: 100%;
+  }
+
+  .top-meta span {
+    width: 100%;
+    text-align: center;
+  }
+
   .assistant {
     top: 8px;
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 18px;
   }
 
   .assistant-bar button,
@@ -884,12 +1023,182 @@ th {
     width: 100%;
   }
 
+  .global-controls {
+    flex-direction: column;
+  }
+
+  .global-controls label,
+  .global-controls select {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .assistant-bar input,
+  .assistant-bar button {
+    padding: 13px 14px;
+  }
+
+  .assistant.is-collapsed {
+    top: auto;
+    bottom: 14px;
+    left: 14px;
+  }
+
+  .assistant.is-collapsed.is-open {
+    width: min(calc(100vw - 28px), 420px);
+    max-height: min(70vh, 520px);
+    overflow: auto;
+  }
+
+  .nav {
+    margin-top: 12px;
+    padding: 8px;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-radius: 18px;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+
+  .content {
+    margin-top: 14px;
+  }
+
+  .page-section {
+    margin-bottom: 14px;
+  }
+
+  .section-head {
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  .section-head h2 {
+    font-size: 1.55rem;
+    line-height: 1.15;
+  }
+
+  .section-copy {
+    max-width: none;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .summary-card,
+  .panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .summary-card strong {
+    font-size: 1.55rem;
+    margin: 10px 0 6px;
+  }
+
+  .panel h3 {
+    font-size: 1.1rem;
+    line-height: 1.2;
+  }
+
+  .buyers-controls label,
+  .buyers-controls--search label {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .buyers-controls input,
+  .buyers-controls select {
+    width: 100%;
+    min-width: 100%;
+  }
+
   .buyer-map__legend,
   .buyers-controls {
     flex-direction: column;
   }
 
+  .section-actions,
+  .panel-actions,
+  .form-actions {
+    justify-content: stretch;
+  }
+
+  .section-actions .ghost-link,
+  .panel-actions .ghost-link,
+  .form-actions .ghost-link {
+    width: 100%;
+    text-align: center;
+  }
+
+  .buyer-map {
+    border-radius: 18px;
+  }
+
+  .buyer-map__svg {
+    min-height: 240px;
+  }
+
+  .buyer-pin__label,
+  .buyer-map__hub text {
+    font-size: 12px;
+  }
+
   .origin-bars__row {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .origin-bars__track {
+    min-height: 36px;
+  }
+
+  .origin-bars__value {
+    right: 12px;
+    font-size: 0.9rem;
+  }
+
+  .rank-row,
+  .tile {
+    padding: 14px;
+  }
+
+  .rank-row strong,
+  .tile strong {
+    font-size: 1.15rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-shell {
+    border-radius: 14px;
+  }
+
+  table {
+    font-size: 0.9rem;
+  }
+
+  th,
+  td {
+    padding: 11px 10px;
+  }
+
+  .notes-cell {
+    min-width: 220px;
+  }
+
+  .year-panels {
+    margin-bottom: 14px;
   }
 }
